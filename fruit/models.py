@@ -5,6 +5,7 @@ from django.db import models
 
 class Apple(models.Model):
     name = models.CharField(max_length=30)
+    size = models.IntegerField(default=3)
 
 
 class Cranberry(models.Model):
