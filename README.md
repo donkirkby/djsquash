@@ -58,9 +58,9 @@ That will ensure the links get created in the right order.
 
 Run the test suite to show that the squashed migration works properly. If you
 can, test against something other than SQLite, because it doesn't catch some
-foreign key problems. Back up the development or production database and run
-`migrate` to see that the unlinking and relinking of the apps doesn't break
-anything.
+foreign key problems. Running in verbose mode will list all the migrations as
+they run. Back up the development or production database and run `migrate` to
+see that the unlinking and relinking of the apps doesn't break anything.
 
 Take a nap.
 
