@@ -11,3 +11,4 @@ class Apple(models.Model):
 class Cranberry(models.Model):
     name = models.CharField(max_length=30)
     bacon = models.ForeignKey('meat.Bacon', null=True)
+    size = models.IntegerField(default=1)
