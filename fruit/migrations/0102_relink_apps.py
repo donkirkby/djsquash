@@ -9,7 +9,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('fruit', '0100_unlink_apps'),
+        ('fruit', '0101_squashed'),
         ('meat', '0001_initial'),
     ]
 

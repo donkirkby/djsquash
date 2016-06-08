@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('fruit', '0001_initial'),
+        ('fruit', '0101_squashed'),
     ]
 
     operations = [

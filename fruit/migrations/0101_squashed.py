@@ -7,8 +7,6 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    replaces = [(b'fruit', '0001_initial'), (b'fruit', '0002_cranberry_bacon'), (b'fruit', '0003_apple_size'), (b'fruit', '0100_unlink_apps')]
-
     initial = True
 
     dependencies = [
