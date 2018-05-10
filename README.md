@@ -17,44 +17,79 @@ Calling `makemigrations` adds another migration:
 * `fruit/0003_apple_size` adds the `size` field
 
 Now it's time to squash migrations. Running `squashmigrations` now would create
-a squashed migration with a circular dependency, so we replace the foreign key
-from `Cranberry` to `Bacon` with an integer field. Override the field name so it
-has the `_id` suffix of a foreign key.
+a squashed migration with a circular dependency, so we try this horribly
+complicated procedure:
 
-    # TODO: switch back to the foreign key.
-    # bacon = models.ForeignKey('meat.Bacon', null=True)
-    bacon = models.IntegerField(db_column='bacon_id', null=True)
+1. Remove all of the migrations.
 
-Run `makemigrations` and rename the migration to show that it is starting
-the squash process:
-* `fruit/0100_unlink_apps` converts the foreign key to an integer field
+        $ rm fruit/migrations/0*
+        $ rm meat/migrations/0*
 
-Now run `squashmigrations fruit 0100` and rename the migration to make it easier
-to follow the sequence:
-* `fruit/0101_squashed` combines all the migrations from 1 to 100.
+2. Create a new set of migrations. This is the only way that I've seen Django
+    properly break dependency cycles by separating `0001_initial` and
+    `0002_cranberry_bacon`.
 
-Comment out the dependency from `fruit/0101_squashed` to `meat/0001_initial`. It
-isn't really needed, and it creates a circular dependency. With more complicated
-migration histories, the foreign keys to other apps might not get optimized out.
-Search the file for all the app names listed in the dependencies to see if there
-are any foreign keys left. If so, manually replace them with the integer fields.
-Usually, this means replacing a `CreateModel(...ForeignKey...)` and
-`AlterModel(...IntegerField...)` with a `CreateModel(...IntegerField...)`.
+        $ ./manage.py makemigrations 
+        Migrations for 'fruit':
+          fruit/migrations/0001_initial.py
+            - Create model Apple
+            - Create model Cranberry
+          fruit/migrations/0002_cranberry_bacon.py
+            - Add field bacon to cranberry
+        Migrations for 'meat':
+          meat/migrations/0001_initial.py
+            - Create model Bacon
 
-The next commit contains all these changes for demonstration purposes. It
-wouldn't make sense to push it without the following commit, though, because
-the apps are still unlinked.
+3. Rename the new migrations to be replacements, and restore the old migrations.
 
-Switch back to the foreign key from `Cranberry` to `Bacon`, and run
-`makemigrations` one last time. Rename the migration to show that it is
-finishing the squash process:
-* `fruit/0102_relink_apps` converts the integer field back to a foreign key
+        $ mv fruit/migrations/0001_initial.py fruit/migrations/0101_squashed.py
+        $ mv fruit/migrations/0002_cranberry_bacon.py fruit/migrations/0102_link_apps.py
+        $ git checkout -- .
 
-Remove the dependency from `fruit/0102_relink_apps` to `fruit/0101_squashed`,
-and add a dependency from `fruit/0102_relink_apps` to `fruit/0100_unlink_apps`.
-The original dependency just won't work. Take the dependencies that were
-commented out in `fruit/0101_squashed` and add them to `fruit/0102_relink_apps`.
-That will ensure the links get created in the right order.
+4. Change the new migrations to actually be replacements for the old
+    migrations. Look through the old migrations to see which ones depend on the
+    other app. List those migrations in `0102_link_apps.py`, and list all the
+    other migrations in `0101_squashed.py`.
+
+        # Added to 0101_squashed.py
+        replaces = [(b'fruit', '0001_initial'), (b'fruit', '0003_apple_size')]
+
+        # Added to 0102_link_apps.py
+        replaces = [(b'fruit', '0002_cranberry_bacon')]
+
+5. Now comes the painful part on a large project. All of the old migrations
+    that depend on the other app have to be taken out of the dependency chain.
+    In my example, `0003_apple_size` now depends on `0001_initial` instead of
+    `0002_cranberry_bacon`. Of course, Django gets upset if you have more than
+    one leaf node in an app's migrations, so you need to link the two
+    dependency chains back together at the end. Here's
+    `fruit/migrations/0100_prepare_squash.py`:
+
+        from __future__ import unicode_literals
+        
+        from django.db import migrations
+        
+        
+        class Migration(migrations.Migration):
+        
+            dependencies = [
+                ('fruit', '0003_apple_size'),
+                ('fruit', '0002_cranberry_bacon'),
+            ]
+        
+            operations = [
+            ]
+
+6. Add `0100_prepare_squash` to the list of migrations that `0102_link_apps`
+    replaces.
+
+        # Added to 0102_link_apps.py
+        replaces = [(b'fruit', '0002_cranberry_bacon'), (b'fruit', '0100_prepare_squash')]
+
+This seems horribly dangerous, particularly making changes to the dependencies
+of the old migrations. I guess you could make the dependency chain more
+elaborate to ensure that everything runs in the correct order, but that would
+be even more painful to set up.
 
 Run the test suite to show that the squashed migration works properly. If you
 can, test against something other than SQLite, because it doesn't catch some
